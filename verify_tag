@@ -1,0 +1,76 @@
+#TAG VERIFICATION AND VALIDATION
+#!/bin/bash
+echo "Loading profiles"
+
+
+DIRECTORY="jenkins_automation"
+
+if [ ! -d "$DIRECTORY" ]; then
+  # Control will enter here if $DIRECTORY doesn't exist.
+  mkdir "${DIRECTORY}"
+  chmod 777 "${DIRECTORY}"  
+fi
+
+cd $DIRECTORY
+
+source /home/edwops/.abinitiorc > /dev/null 2>&1
+source /home/edwops/.profile > /dev/null 2>&1
+export AB_AIR_ROOT=//172.20.149.52/ap_ab_ops/eme/repo
+#echo "New tag name created is"
+#${NEW_TAG_NAME}
+
+#echo "Sandbox directory is set to"
+#${SANDBOX_DIRECTORY}
+
+#echo "Base directory is set to"
+#${BASE_DIR}
+
+echo "VERIFYING TAG OBJECTS"
+VAR=$(air project export ${SANDBOX_DIRECTORY} \
+	-basedir ${BASE_DIR} \
+	-from-tag ${NEW_TAG_NAME} -dry-run -force | grep 'Overwrite')
+echo $VAR | grep Overwrite
+if [ $? -eq 0 ]
+then
+echo "CONFLICT FOUND IN OBJECTS. HENCE, EXITING"
+echo ""
+echo "MAIL URL is set to -"
+
+exit 1
+else
+echo "NO CONFLICT FOUND. PROCEEDING WITH CHECKOUT OBJECTS"
+fi
+
+echo "STORING LIST OF OBJECTS IN FILE"
+export AB_AIR_ROOT=//172.20.149.52/ap_ab_ops/eme/repo
+air project export ${SANDBOX_DIRECTORY} \
+	-basedir ${BASE_DIR} \
+	-from-tag ${NEW_TAG_NAME} -dry-run -force | awk '{print $2}'| grep -o '[^/]\+$' | grep -v "Bytes" | sort -u > object_verify_diff2.txt
+
+echo "#################################"
+
+#echo "ORIGINAL TAG CONTENTS ARE"
+#cat object_verify_diff1.txt
+
+echo "OBJECTS OBTAINED FROM DEVELOPERS ARE"
+
+
+cat ${TAG_NAME}.objects | grep -o '[^/]\+$' | sort -u > object_verify_diff1.txt
+cat object_verify_diff1.txt
+
+echo "#################################"
+
+echo "DUPLICATE TAG CONTENTS ARE"
+cat object_verify_diff2.txt
+
+echo "#################################"
+
+echo "DIFFING CHANGES FOUND"
+diff object_verify_diff1.txt object_verify_diff2.txt
+if [ $? -ne 0 ]
+then
+echo "DIFFERENCE FOUND IN OBJECT VALIDATION"
+exit 1
+else
+echo "NO DIFFERENCE FOUND, PROCEEDING TO CHECKOUT JOB"
+fi
