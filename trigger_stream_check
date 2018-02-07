@@ -1,0 +1,15 @@
+#!/bin/bash
+cd /var/lib/jenkins/automation/cldm_12
+while :; do
+echo "Comparing files for stream processings"
+cmp --silent original_tag.file checkout_tag.file
+if [ $? -eq 0 ]
+		then
+		echo "### SUCCESS: Files Are Identical! ###"
+		break
+        else
+        sleep 10
+        echo "### WARNING: Files Are Different! ###"
+        
+	fi
+done
