@@ -1,0 +1,26 @@
+#!/bin/bash
+echo "Loading profiles"
+source /home/devops/.abinitiorc > /dev/null 2>&1
+source /home/devops/.profile > /dev/null 2>&1
+
+for i in  $(echo ${STREAM_NAME} | sed "s/,/ /g")
+do
+	  echo "STREAM selected is $i"
+          ANP_QUEUE_DIR=`cat /home/devops/jenkins_automation/cldm12/new_stream.file | grep -w $i | cut -d '=' -f 5`
+	  ANP_QUEUE=`cat /home/devops/jenkins_automation/cldm12/new_stream.file | grep -w $i | cut -d '=' -f 6` 
+	  echo "Navigating to App_Queue directory"
+	  cd $ANP_QUEUE_DIR
+	  pwd
+	  echo "Processing Anp queues"
+	  #for a in  $(echo ${ANP_QUEUE} | sed "s/,/ /g")
+	 # do
+              echo "Processing Queue for $i"
+              echo "Clearing Queue for $ANP_QUEUE_DIR"
+               echo "Command to Execute : m_queue reset-subscriber ${ANP_QUEUE_DIR} db_load"
+                m_queue reset-subscriber -f ${ANP_QUEUE_DIR} db_load
+                sleep 5
+                
+       
+	  #done
+	  
+done	
