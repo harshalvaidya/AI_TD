@@ -1,0 +1,6 @@
+#!/bin/bash
+DIRECTORY="/var/lib/jenkins/automation/cldm_12/${ENV}"
+#calculating the duration of the build
+DURATION=$(curl -u auto:Zaq12wsX123$ http://172.21.51.127:8090/job/STC_DevOps/job/Ab-Initio+Teradata/job/Ab-Initio_Teradata/job/cldm12_project/view/Abinit_Deployment_Automation/job/INIT_PARAM/$BUILD_NUMBER/timestamps/ | tail -1)
+echo $DURATION
+echo DURATION_INIT_PARAM=${DURATION} >> ${DIRECTORY}/${CR_NUMBER}.envvars
