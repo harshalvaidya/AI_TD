@@ -1,0 +1,122 @@
+#!/bin/bash
+#Trigger API's and processings
+#AUTHOR : HARSHAL VAIDYA
+
+
+echo ${ENV}
+echo ${PIPELINE_TYPE}
+echo ${TAG_NAME}
+echo ${KSH_SCRIPT_NAME}
+echo ${ADHOC_JOB_NAME}
+echo ${STREAM_NAME}
+echo ${CR_NUMBER}
+
+
+########################### STORING VARIABLES IN PROPERTY FILE as KEY=PAIR ###########################
+
+DIRECTORY="/var/lib/jenkins/automation/cldm_12/${ENV}"
+
+if [ ! -d "$DIRECTORY" ]; then
+  # Control will enter here if $DIRECTORY doesn't exist.
+  mkdir "${DIRECTORY}"
+  chmod 777 "${DIRECTORY}"
+  
+fi
+
+
+########################## DELETING CHECKOUT.TAG FILE#######################################
+
+cd /var/lib/jenkins/automation/cldm_12
+rm -rf checkout_tag.file original_tag.file
+rm -rf /var/lib/jenkins/automation/cldm_12/PRE-PROD/stream.file
+echo "Recreating stream.envvars file for stream processings"
+touch original_tag.file checkout_tag.file 
+
+
+########################### GROUP CREATION AND ASSIGNMENT ###############################
+
+for i in  $(echo ${TAG_NAME} | sed "s/,/ /g")
+do
+echo ""
+echo "SETTING ENVVAR FOR $i"
+echo "$i has ENVVAR file as $i.envvars"
+echo ""
+echo TAG_NAME=$i  
+NEW_TAG_NAME=${i}_PRE_`date +"%d%m%Y_%H%M%S"`
+SAVE_FILE_NAME=${NEW_TAG_NAME}.SAV
+VAR_SSH=$(ssh devops@172.20.150.196 "source /home/devops/.abinitiorc >/dev/null 2>&1;source /home/devops/.profile >/dev/null 2>&1;air tag ls -p $i  | grep /Projects/ | head -1 | sed 's/\/\(mp\|plan\|bin\|pset\|db\|dml\|sql\|xfr\|run\)\//#/' | cut -d '#' -f1")
+echo "EME_PATH obtained : $VAR_SSH"
+SSH_NEW_VAR=`echo $VAR_SSH | awk '{print $1}'`
+echo $SSH_NEW_VAR
+BASE_DIR=`cat /var/lib/jenkins/automation/cldm_12/property.file | grep -w ${SSH_NEW_VAR} | cut -d '=' -f4`
+SERVER=`cat /var/lib/jenkins/automation/cldm_12/property.file | grep -w ${SSH_NEW_VAR} | cut -d '=' -f 1`
+
+############################# VARIABLE PUBLISHING #########################################
+
+echo APP=${APPLICATION}
+echo ENV=${ENV}
+echo PIPELINE_TYPE=${PIPELINE_TYPE}
+echo TAG_NAME=${i}   
+echo KSH_SCRIPT_NAME=${KSH_SCRIPT_NAME}
+echo ADHOC_JOB_NAME=${ADHOC_JOB_NAME}
+#echo STREAM_NAME=${STREAM_NAME}
+echo INIT_PARAM_TOKEN=${INIT_PARAM_TOKEN}
+echo NEW_TAG_NAME=${NEW_TAG_NAME}
+echo SAVE_FILE_NAME=${SAVE_FILE_NAME}
+echo SANDBOX_DIRECTORY=${SSH_NEW_VAR}
+echo BASE_DIR=${BASE_DIR}
+echo SERVER=${SERVER}
+
+########################## PROCESSING & AUTO-STORING ##########################################
+
+echo APP=${APP} > ${DIRECTORY}/$i.envvars
+echo APP=${APPLICATION} >> ${DIRECTORY}/$i.envvars
+echo ENV=${ENV} >> ${DIRECTORY}/$i.envvars
+echo PIPELINE_TYPE=${PIPELINE_TYPE} >> ${DIRECTORY}/$i.envvars
+echo TAG_NAME=${i} >> ${DIRECTORY}/$i.envvars
+echo KSH_SCRIPT_NAME=${KSH_SCRIPT_NAME} >> ${DIRECTORY}/$i.envvars
+echo ADHOC_JOB_NAME=${ADHOC_JOB_NAME} >> ${DIRECTORY}/$i.envvars
+#echo STREAM_NAME=${STREAM_NAME} >> ${DIRECTORY}/$i.envvars
+echo INIT_PARAM_TOKEN=${INIT_PARAM_TOKEN} >> ${DIRECTORY}/$i.envvars
+echo NEW_TAG_NAME=${NEW_TAG_NAME} >> ${DIRECTORY}/$i.envvars
+echo SAVE_FILE_NAME=${SAVE_FILE_NAME} >> ${DIRECTORY}/$i.envvars
+echo SANDBOX_DIRECTORY=${SSH_NEW_VAR} >> ${DIRECTORY}/$i.envvars
+echo BASE_DIR=${BASE_DIR} >> ${DIRECTORY}/$i.envvars
+echo SERVER=${SERVER} >> ${DIRECTORY}/$i.envvars
+echo PLAN_EXECUTION_MODE=Sequential >> ${DIRECTORY}/$i.envvars
+PLAN_NAME_NAME=`cat /var/lib/jenkins/automation/cldm_12/plan.file | grep -w ${STREAM_NAME} | cut -d '=' -f2`
+echo PLAN_NAME_NAMEE=${PLAN_NAME_NAME} >> ${DIRECTORY}/$i.envvars
+
+echo ""
+echo "Triggering Build for : $i"
+curl -u auto:Zaq12wsX123$ POST "http://172.21.51.127:8090/job/STC_DevOps/job/Ab-Initio+Teradata/job/Ab-Initio_Teradata/job/cldm12_project/job/Duplicate_Tag/buildWithParameters?token=423ee5cb102ecb146f13b396a35c265c&ENV=${ENV}&TAG_NAME=${i}"
+echo "ENV=${ENV} AND TAG_NAME=${i}"
+echo "Triggered job remotely via API"
+echo "wating for 10 seconds for next tag executions..."
+sleep 30
+done
+
+########################### PROCESSING STREAMS   ################################
+
+
+for i in  $(echo ${TAG_NAME} | sed "s/,/ /g")
+do
+echo "$i" >> original_tag.file
+done
+
+if [[ -n "${STREAM_NAME}" ]];
+then
+echo ${STREAM_NAME}
+echo "REST API : Triggering Stream job"
+curl -u auto:Zaq12wsX123$ POST "http://172.21.51.127:8090/job/STC_DevOps/job/Ab-Initio+Teradata/job/Ab-Initio_Teradata/job/cldm12_project/job/Trigger_Streams/buildWithParameters?token=trigger_streams_matching_token&ENV=${ENV}&CR_NUMBER=${CR_NUMBER}"
+else
+echo "User has not selected any streams for current executions..."
+fi
+
+
+echo STREAM_NAME=${STREAM_NAME}
+echo STREAM_NAME=${STREAM_NAME} >> ${DIRECTORY}/stream.file
+
+######################################################################################
+
+
