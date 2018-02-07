@@ -1,0 +1,134 @@
+#!/bin/bash
+#PLAN EXECUTIONS
+DIRECTORY="jenkins_automation"
+BASE_DIR=/home/devops/private_sand/AP/Interfaces/ap_priv/
+
+if [ ! -d "$DIRECTORY" ]; then
+  # Control will enter here if $DIRECTORY doesn't exist.
+  mkdir "${DIRECTORY}"
+  chmod 777 "${DIRECTORY}"  
+fi
+
+cd $DIRECTORY
+
+
+source /home/devops/.abinitiorc
+source /home/devops/.profile
+
+pwd
+
+for a in  $(echo ${STREAM_NAME} | sed "s/,/ /g")
+do
+	echo "STREAM selected is $a"
+	PLAN_NAME=`cat /home/devops/jenkins_automation/cldm12/new_stream.file | grep -w $a | cut -d '=' -f 2` > /dev/null
+	echo "PLAN NAME OBTAINED ARE = ${PLAN_NAME}"
+	if [[ -n "${PLAN_NAME}" ]];
+		then
+		echo "Starting Plan Executions"
+		echo ${PLAN_NAME}
+			 for a in  $(echo ${PLAN_NAME} | sed "s/,/ /g")
+        do
+                if [ -f "$a.fail" ]
+                then
+                        if [ $a = `cat $a.fail` ]
+							then
+							echo "Execute AIR commands for $a"
+							echo "Plan Name selected is : $a"
+							EXTN_TYPE=`echo $a | cut -d '.' -f 2 `
+							if [ $EXTN_TYPE = "plan" ]; 
+								then
+								FINAL_PLAN_RES=`find ${BASE_DIR}/plan -name "$a"`
+								echo ${FINAL_PLAN_RES}
+								echo "Execute Plan on target"
+								air sandbox run ${FINAL_PLAN_RES}
+								if [ $? -ne 0 ];
+									then
+									echo "PLAN IS FAILED : ${FINAL_PLAN_RES}"
+									echo "$a" > $a.fail
+									exit 1
+								fi
+									elif [ $EXTN_TYPE = "pset" ]; 
+									then
+									FINAL_PLAN_RES=`find ${BASE_DIR}/pset -name "$a"`
+									echo ${FINAL_PLAN_RES}
+									echo "Execute PSET on target"
+									air sandbox run ${FINAL_PLAN_RES}
+									if [ $? -ne 0 ];
+									then
+									echo "PSET IS FAILED : ${FINAL_PLAN_RES}"
+									echo "$a" > $a.fail
+									exit 1
+									fi
+							else
+								FINAL_PLAN_RES=`find ${BASE_DIR}/mp -name "$a"`
+								echo ${FINAL_PLAN_RES}
+								echo "Execute mp on target"
+								air sandbox run ${FINAL_PLAN_RES}
+								if [ $? -ne 0 ];
+								then
+								echo "GRAPH (mp) IS FAILED : ${FINAL_PLAN_RES}"
+								echo "$a" > $a.fail
+								exit 1
+								fi
+			
+			
+							fi
+							echo "removing file"
+							rm -rf $a.fail
+						elif [ -f "$a.fail" ]
+								then
+								echo "Plan $a has been already executed"
+						fi
+				else
+					echo "No fail fle. hence proceeding with normal executions"
+					EXTN_TYPE=`echo $a | cut -d '.' -f 2 `
+					if [ $EXTN_TYPE = "plan" ]; 
+						then
+						FINAL_PLAN_RES=`find ${BASE_DIR}/plan -name "$a"`
+						echo ${FINAL_PLAN_RES}
+						echo "Execute Plan on target"
+						air sandbox run ${FINAL_PLAN_RES}
+							if [ $? -ne 0 ];
+								then
+								echo "PLAN IS FAILED : ${FINAL_PLAN_RES}"
+								echo "$a" > $a.fail
+								exit 1
+							fi
+						elif [ $EXTN_TYPE = "pset" ]; 
+				then
+				FINAL_PLAN_RES=`find ${BASE_DIR}/pset -name "$a"`
+				echo ${FINAL_PLAN_RES}
+				echo "Execute PSET on target"
+				air sandbox run ${FINAL_PLAN_RES}
+				if [ $? -ne 0 ];
+				then
+				echo "PSET IS FAILED : ${FINAL_PLAN_RES}"
+				echo "$a" > $a.fail
+				exit 1
+				fi
+			else
+				FINAL_PLAN_RES=`find ${BASE_DIR}/mp -name "$a"`
+				echo ${FINAL_PLAN_RES}
+				echo "Execute mp on target"
+				air sandbox run ${FINAL_PLAN_RES}
+				if [ $? -ne 0 ];
+				then
+				echo "GRAPH (mp) IS FAILED : ${FINAL_PLAN_RES}"
+				echo "$a" > $a.fail
+				exit 1
+				fi
+			
+			
+					fi
+					
+                fi
+         done
+	
+		
+		else
+		echo "NO Plan found for execution."
+		exit 1
+	fi
+	
+
+done
