@@ -1,0 +1,17 @@
+#!/bin/bash
+DIRECTORY="/var/lib/jenkins/automation/cldm_12/${ENV}"
+cd ${DIRECTORY}
+cd /var/lib/jenkins/automation/cldm_12/PRE-PROD
+j=0
+for i in `cat /var/lib/jenkins/automation/cldm_12/checkout_tag.file`
+do
+RESULT=`cat $i.duration | grep "AB_DUR" | awk 'BEGIN {FS = "="} ; {sum+=$2} END {print sum}'`
+j=`echo $j + $RESULT | bc`
+done
+echo $j
+echo AB_DUR=$j >> /var/lib/jenkins/automation/cldm_12/${ENV}/${CR_NUMBER}.envvars
+echo "Execution time for Ab-Initio deployment is : $j"
+
+TD_DUR=`cat ${CR_NUMBER}.envvars | grep "TDD" | awk 'BEGIN {FS = "="} ; {sum+=$2} END {print sum}'`
+echo "Execution time for Teradata deployment is : $TD_DUR"
+echo TD_DUR=${TD_DUR} >> /var/lib/jenkins/automation/cldm_12/${ENV}/${CR_NUMBER}.envvars
