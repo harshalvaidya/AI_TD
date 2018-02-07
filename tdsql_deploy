@@ -1,0 +1,166 @@
+#!/bin/bash
+PRE_DEPLOY_DIR=/var/lib/jenkins/automation/SVN_Deployment/CR/${CR_NUMBER}/Pre-Deployment
+TD_LOGIN_SCRIPT=/var/lib/jenkins/login
+SQL_LOG=/var/lib/jenkins/SQL_LOG
+
+
+
+echo "Processing SQL files"
+cd $PRE_DEPLOY_DIR
+find . -name "*.sql" | sort | sed 's|./||' > sort.results
+for i in `cat sort.results`
+do
+
+sed -e 's/^ //g' -e 's/^  //g' -e 's/^   //g' -e 's/^[[:space:]]//g' $i | awk 'NF'  > $i.bkp
+sed 's/;/;\n/g' $i.bkp > $i
+rm -rf $i.bkp
+
+echo "Removing Older Logs"
+rm -rf $SQL_LOG/$i.log
+echo "SQL File obtained is : $i"
+echo "Setting Up DB_NAME based on Environment selection"
+if [[ "$ENV" == "DEVELOPMENT" ]];then
+DB_NAME="DD_MN"
+elif [[ "$ENV" == "TESTING" ]];then
+DB_NAME_CC="DT"
+elif  [[ "$ENV" == "PRE-PROD" ]];then
+DB_NAME="DP_PRE"
+fi
+
+echo "Selected DB_NAME is : $DB_NAME"
+echo ""
+echo "Replacing DB_NAME in files"
+sed "s:<<DB_NAME>>:$DB_NAME:g;" $i > ${i}_jenkins
+sleep 1
+mv ${i}_jenkins $i
+sleep 1
+#echo $i
+
+ if [[ -f "/var/lib/jenkins/SQL_LOG/${i}.failure" && -f "/var/lib/jenkins/SQL_LOG/${i}.success" ]];then
+ echo "failure file chech"
+#	if [[ -f "/var/lib/jenkins/SQL_LOG/${i}.success" ]];then
+		diff -bIRE $PRE_DEPLOY_DIR/$i /var/lib/jenkins/SQL_LOG/$i.success | grep '^<'|cut -c 2- > $PRE_DEPLOY_DIR/$i.diff
+        mv $PRE_DEPLOY_DIR/$i.diff $PRE_DEPLOY_DIR/$i
+		echo "Start from failure point file check"
+
+		
+while read -rd ';' line
+do
+echo "Login to BTEQ"
+echo $line
+sleep 1
+bteq << EOF > /var/lib/jenkins/SQL_LOG/$i.log
+.RUN FILE /var/lib/jenkins/login
+/* sql code on next line(s) */
+explain $line;
+.IF ERRORCODE =0 THEN .GOTO DoQuery1;
+.IF ERRORCODE !=0 THEN  .GOTO DoQuery2;
+.LABEL DoQuery1;
+$line;
+.IF ERRORCODE !=0 THEN  .GOTO DoQuery3;
+.LABEL DoQuery3;
+.LOGOFF;
+.EXIT;
+.quit;
+
+.LABEL DoQuery2;
+.LOGOFF;
+.EXIT;
+.quit;
+EOF
+
+RCD=`cat /var/lib/jenkins/SQL_LOG/$i.log | grep '*** RC (return code) = 0'`
+if  [[ ${RCD} == "" ]];then
+echo "$line;"| sed 's/[[:cntrl:]]//g' >>/var/lib/jenkins/SQL_LOG/$i.failure
+exit 1
+fi;
+rm -f /var/lib/jenkins/SQL_LOG/$i.failure
+echo "$line;"| sed 's/[[:cntrl:]]//g' >>/var/lib/jenkins/SQL_LOG/$i.success
+sleep 3
+done < $PRE_DEPLOY_DIR/$i
+sleep 1
+
+elif [[ -f "/var/lib/jenkins/SQL_LOG/${i}.failure" && ! -f "/var/lib/jenkins/SQL_LOG/${i}.success" ]];then
+	
+while read -rd ';' line
+do
+echo "Login to BTEQ"
+echo $line
+sleep 1
+bteq << EOF > /var/lib/jenkins/SQL_LOG/$i.log
+.RUN FILE /var/lib/jenkins/login
+/* sql code on next line(s) */
+explain $line;
+.IF ERRORCODE =0 THEN .GOTO DoQuery1;
+.IF ERRORCODE !=0 THEN  .GOTO DoQuery2;
+.LABEL DoQuery1;
+$line;
+.IF ERRORCODE !=0 THEN  .GOTO DoQuery3;
+.LABEL DoQuery3;
+.LOGOFF;
+.EXIT;
+.quit;
+
+.LABEL DoQuery2;
+.LOGOFF;
+.EXIT;
+.quit;
+EOF
+
+RCD=`cat /var/lib/jenkins/SQL_LOG/$i.log | grep '*** RC (return code) = 0'`
+if  [[ ${RCD} == "" ]];then
+echo "$line;" | sed 's/[[:cntrl:]]//g' >>/var/lib/jenkins/SQL_LOG/$i.failure
+exit 1
+fi;
+echo "$line;" | sed 's/[[:cntrl:]]//g' >>/var/lib/jenkins/SQL_LOG/$i.success
+sleep 3
+done < $PRE_DEPLOY_DIR/$i
+sleep 1
+
+elif [[ ! -f "/var/lib/jenkins/SQL_LOG/${i}.success" ]];then
+	
+while read -rd ';' line
+do
+echo "Login to BTEQ"
+echo $line
+sleep 1
+bteq << EOF > /var/lib/jenkins/SQL_LOG/$i.log
+.RUN FILE /var/lib/jenkins/login
+/* sql code on next line(s) */
+explain $line;
+.IF ERRORCODE =0 THEN .GOTO DoQuery1;
+.IF ERRORCODE !=0 THEN  .GOTO DoQuery2;
+.LABEL DoQuery1;
+$line;
+.IF ERRORCODE !=0 THEN  .GOTO DoQuery3;
+.LABEL DoQuery3;
+.LOGOFF;
+.EXIT;
+.quit;
+
+.LABEL DoQuery2;
+.LOGOFF;
+.EXIT;
+.quit;
+EOF
+
+RCD=`cat /var/lib/jenkins/SQL_LOG/$i.log | grep '*** RC (return code) = 0'`
+if  [[ ${RCD} == "" ]];then
+
+echo "$line;" | sed 's/[[:cntrl:]]//g' >>/var/lib/jenkins/SQL_LOG/$i.failure
+exit 1
+fi;
+echo "$line;" | sed 's/[[:cntrl:]]//g' >>/var/lib/jenkins/SQL_LOG/$i.success
+sleep 3
+done < $PRE_DEPLOY_DIR/$i
+sleep 1
+
+else
+echo "SQL file has been already executed."
+
+fi;
+done
+
+echo "All SQL has been succesfully executed on TD server"
+
+rm -f /var/lib/jenkins/SQL_LOG/*.success
