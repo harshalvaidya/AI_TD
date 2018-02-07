@@ -1,0 +1,25 @@
+#!/bin/bash
+#Copying sources
+for a in  $(echo ${STREAM_NAME} | sed "s/,/ /g")
+do
+	echo "STREAM selected is $a"
+	LANDING_DIR=`cat /home/imran/jenkins_automation/cldm12_stream.file | grep -w $a | cut -d '=' -f 3`
+	ARCHIVAL_DIR=`cat /home/imran/jenkins_automation/cldm12_stream.file | grep -w $a | cut -d '=' -f 4`
+	echo "PRE-PROD: LANDING DIRECTORY IS SET TO = ${LANDING_DIR}"
+	echo "PRODUCTION: ARCHIVAL DIRECTORY IS SET TO = ${ARCHIVAL_DIR}"
+	cd ${ARCHIVAL_DIR}	
+	echo "Obtaining latest source file from PRODUCTION for $a streams"
+	A_LATEST_SOURCE_FILE=`find ${ARCHIVAL_DIR} -type f -exec stat --format '%Y :%y %n' "{}" \; | sort -nr | cut -d: -f2- | head`
+	echo "Available latest modified files are"
+	echo $A_LATEST_SOURCE_FILE
+	echo "However, Obtaining most latest/recently updated source file"
+	LATEST_SOURCE_FILE=`find ${ARCHIVAL_DIR} -type f -exec stat --format '%Y :%y %n' "{}" \; | sort -nr | cut -d: -f2- | head -1 | awk '{print $4}'`
+	echo "Latest modified file is"
+	echo $LATEST_SOURCE_FILE
+	echo "COPYING FILE TO PRE-PROD"
+        scp $LATEST_SOURCE_FILE devops@172.20.149.52:${LANDING_DIR}
+	if [ $? -eq 0 ]
+		then
+		echo "FILE SUCCESSFULLY TRANSFERRED !!!"
+	fi
+done
