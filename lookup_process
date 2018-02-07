@@ -1,0 +1,20 @@
+#!/bin/bash
+#Processing Lookup files
+for a in  $(echo ${STREAM_NAME} | sed "s/,/ /g")
+do
+	echo "STREAM selected is $a"
+	FILE_PROCESSED_LOOKUP=`cat /home/devops/jenkins_automation/cldm12/new_stream.file | grep -w $a | cut -d '=' -f 9` > /dev/null
+	echo "PRE-PROD: FILE_PROCESSED_LOOKUP IS SET TO = ${FILE_PROCESSED_LOOKUP}"
+	if [ -f $FILE_PROCESSED_LOOKUP ]; then
+		echo "File $FILE_PROCESSED_LOOKUP exists."
+		echo "Removing DAT file"
+		rm -rf $FILE_PROCESSED_LOOKUP
+		echo "Recreating LOOKUP file"
+		touch $FILE_PROCESSED_LOOKUP
+                ls -ltr $FILE_PROCESSED_LOOKUP
+		else
+		echo "File $FILE does not exist. so recreating with the same name"
+touch -f $FILE_PROCESSED_LOOKUP
+ls -ltr $FILE_PROCESSED_LOOKUP
+	fi
+done
